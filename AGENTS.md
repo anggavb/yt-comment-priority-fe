@@ -43,3 +43,19 @@ The repository uses the default five-label triage vocabulary. See `docs/agents/t
 ### Domain docs
 
 Domain documentation uses the single-context layout. See `docs/agents/domain.md`.
+
+## shadcn-svelte Automation Rules
+
+You are working on a SvelteKit project using Tailwind CSS v4 and shadcn-svelte.
+Whenever the user asks you to build a UI feature, create a page, or use a component that is not yet installed in `src/lib/components/ui/`, you MUST automatically run the installation command first.
+
+### Installation Instructions:
+- Always use `bun x shadcn-svelte add <component-name>` to install components.
+- Do NOT try to manually recreate shadcn components from scratch.
+- If you need multiple components, install them in one go or sequentially (e.g., `bun x shadcn-svelte add dialog button input`).
+
+### Example Workflow:
+If the user asks: "Buat form login pakai card dan button"
+Your action:
+1. Run terminal command: `bun x shadcn-svelte add card button input`
+2. Create/modify the Svelte file using those components.
