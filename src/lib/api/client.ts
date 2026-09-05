@@ -33,7 +33,7 @@ class ConnectionStateStore {
 	private _mode: ConnectionMode = 'mock';
 	private _health: BackendHealth = {
 		status: 'checking',
-		url: 'http://localhost:3000',
+		url: import.meta.env?.PUBLIC_API_BASE_URL || 'http://localhost:3000',
 		lastChecked: undefined
 	};
 	private _fallbackActive: boolean = false;
