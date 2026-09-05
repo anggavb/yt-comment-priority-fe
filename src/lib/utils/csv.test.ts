@@ -193,7 +193,7 @@ describe('CSV Utilities (Issue #8: Academic Thesis Export)', () => {
 
 		it('exports Final Ranking Leaderboard with academic columns', () => {
 			const csv = generateFinalRankingCsv(mockLeaderboard);
-			expect(csv).toContain('Rank,Candidate Product,C1 Raw,C2 Raw,C3 Raw,C4 Raw,R1,R2,R3,R4,Preference Value Vi');
+			expect(csv).toContain('Rank,Candidate Product,C1 (Decision Matrix),C2 (Decision Matrix),C3 (Decision Matrix),C4 (Decision Matrix),R1,R2,R3,R4,Preference Value Vi');
 			expect(csv).toContain('1,Sony WH-1000XM5,15,12,8.5000,0.7500,1.0000,1.0000,1.0000,1.0000,1.0000');
 			expect(csv).toContain('2,Bose QC Ultra,10,8,4.2500,0.5000,0.6667,0.6667,0.5000,0.6667,0.6333');
 		});
@@ -251,7 +251,7 @@ describe('CSV Utilities (Issue #8: Academic Thesis Export)', () => {
 
 		it('exports comment audit table with accurate columns and escaping', () => {
 			const csv = generateCommentAuditCsv(mockComments, mockProducts);
-			expect(csv).toContain('Author,Published At,Comment Text,Detected Products,Product Keywords,Request Keywords,Status,Likes');
+			expect(csv).toContain('Author,Published At,Comment Text,Candidate Products,Product Keywords,Request Keywords,Status,Likes');
 			expect(csv).toContain('"Audiophile, User",2026-08-15T10:00:00Z,"Tolong review Sony XM5, dong!",Sony WH-1000XM5,sony xm5,review,Request,14');
 			expect(csv).toContain('Plain Viewer,2026-08-16T12:00:00Z,Video bagus banget bang,-,-,-,Unmatched,2');
 		});

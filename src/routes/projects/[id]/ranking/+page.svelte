@@ -86,37 +86,18 @@
 		return n.toFixed(4);
 	}
 
-	/** Export Table 1: Initial Decision Matrix (Xij) */
-	function exportDecisionMatrix() {
+	/** Generic helper to export a matrix table as CSV */
+	function exportTable(prefix: string, generator: (lb: RankingLeaderboard) => string) {
 		if (!leaderboard) return;
-		const csv = generateDecisionMatrixCsv(leaderboard);
+		const csv = generator(leaderboard);
 		const dateStr = new Date().toISOString().slice(0, 10);
-		downloadCsv(`decision-matrix-${data.project.id}-${dateStr}.csv`, csv);
+		downloadCsv(`${prefix}-${data.project.id}-${dateStr}.csv`, csv);
 	}
 
-	/** Export Table 2: Normalized Matrix (Rij) */
-	function exportNormalizedMatrix() {
-		if (!leaderboard) return;
-		const csv = generateNormalizedMatrixCsv(leaderboard);
-		const dateStr = new Date().toISOString().slice(0, 10);
-		downloadCsv(`normalized-matrix-${data.project.id}-${dateStr}.csv`, csv);
-	}
-
-	/** Export Table 3: Weighted Matrix (Wj * Rij) */
-	function exportWeightedMatrix() {
-		if (!leaderboard) return;
-		const csv = generateWeightedMatrixCsv(leaderboard);
-		const dateStr = new Date().toISOString().slice(0, 10);
-		downloadCsv(`weighted-matrix-${data.project.id}-${dateStr}.csv`, csv);
-	}
-
-	/** Export Table 4: Final Ranking Leaderboard (Vi) */
-	function exportFinalRanking() {
-		if (!leaderboard) return;
-		const csv = generateFinalRankingCsv(leaderboard);
-		const dateStr = new Date().toISOString().slice(0, 10);
-		downloadCsv(`final-ranking-${data.project.id}-${dateStr}.csv`, csv);
-	}
+	const exportDecisionMatrix = () => exportTable('decision-matrix', generateDecisionMatrixCsv);
+	const exportNormalizedMatrix = () => exportTable('normalized-matrix', generateNormalizedMatrixCsv);
+	const exportWeightedMatrix = () => exportTable('weighted-matrix', generateWeightedMatrixCsv);
+	const exportFinalRanking = () => exportTable('final-ranking', generateFinalRankingCsv);
 
 	function handlePrint() {
 		if (typeof window !== 'undefined') {

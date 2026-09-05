@@ -17,7 +17,9 @@
 		RefreshIcon,
 		CheckmarkCircle01Icon,
 		Download04Icon,
-		Loading03Icon
+		Loading03Icon,
+		PrinterIcon,
+		AlertCircleIcon
 	} from '@hugeicons/core-free-icons';
 	import { downloadCsv, generateCommentAuditCsv } from '$lib/utils/csv';
 	import {
@@ -42,10 +44,11 @@
 	let currentPage = $state(1);
 	let itemsPerPage = $state(10);
 
-	// UI loading and dialog states
+	// UI loading, export, and dialog states
 	let isLoading = $state(true);
 	let isTableLoading = $state(false);
 	let isExportingCsv = $state(false);
+	let exportErrorMessage = $state<string | null>(null);
 	let isProcessDialogOpen = $state(false);
 	let isDetailDialogOpen = $state(false);
 	let selectedComment = $state<CommentWithMatches | null>(null);
@@ -166,11 +169,10 @@
 
 	async function handleExportCsv() {
 		isExportingCsv = true;
+		exportErrorMessage = null;
 		try {
+			// Fetch all project comments for complete academic audit
 			const res = await apiClient.getComments(data.project.id, {
-				productId: selectedProductId || undefined,
-				status: selectedStatus,
-				search: searchQuery.trim() || undefined,
 				limit: 10000
 			});
 			const csv = generateCommentAuditCsv(res.data, products);
@@ -178,15 +180,22 @@
 			downloadCsv(`comment-audit-${data.project.id}-${dateStr}.csv`, csv);
 		} catch (err: unknown) {
 			console.error('Failed to export comment audit CSV:', err);
+			exportErrorMessage = err instanceof Error ? err.message : 'Gagal mengekspor data audit komentar.';
 		} finally {
 			isExportingCsv = false;
+		}
+	}
+
+	function handlePrint() {
+		if (typeof window !== 'undefined') {
+			window.print();
 		}
 	}
 </script>
 
 <div class="space-y-6">
 	<!-- Tab Header & Extraction Action Trigger -->
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
 		<div>
 			<h2 class="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
 				<span>Komentar & Ekstraksi Permintaan</span>
@@ -209,7 +218,19 @@
 			</p>
 		</div>
 
-		<div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+		<div class="flex items-center gap-2 self-start sm:self-auto flex-wrap print:hidden">
+			<Button
+				variant="outline"
+				size="sm"
+				class="gap-1.5 text-xs"
+				onclick={handlePrint}
+				disabled={(commentsData?.total ?? 0) === 0}
+				title="Cetak tabel audit komentar ke format PDF / printer untuk lampiran skripsi"
+			>
+				<HugeiconsIcon icon={PrinterIcon} class="size-3.5" />
+				<span>Cetak / PDF</span>
+			</Button>
+
 			<Button
 				variant="outline"
 				size="sm"
@@ -251,26 +272,62 @@
 		</div>
 	</div>
 
+	<!-- Error Alert Notification -->
+	{#if exportErrorMessage}
+		<div class="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-600 text-xs flex items-center justify-between print:hidden">
+			<div class="flex items-center gap-2">
+				<HugeiconsIcon icon={AlertCircleIcon} class="size-4 shrink-0" />
+				<span>{exportErrorMessage}</span>
+			</div>
+			<Button variant="ghost" size="xs" onclick={() => (exportErrorMessage = null)}>Tutup</Button>
+		</div>
+	{/if}
+
+	<!-- Print-Only Academic Document Header for Comment Audit -->
+	<div class="hidden print:block mb-6 pb-4 border-b-2 border-neutral-800 text-black">
+		<div class="flex items-start justify-between gap-4">
+			<div>
+				<h1 class="text-xl font-bold uppercase tracking-tight text-black">
+					Lampiran: Tabel Audit Komentar & Deteksi Kata Kunci
+				</h1>
+				<p class="text-sm font-semibold mt-1 text-neutral-800">
+					Analysis Project: {data.project.name}
+				</p>
+				{#if data.project.description}
+					<p class="text-xs text-neutral-600 mt-0.5 max-w-2xl">{data.project.description}</p>
+				{/if}
+			</div>
+			<div class="text-right text-xs text-neutral-600 font-mono shrink-0">
+				<p>Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+				<p>Total Komentar: {commentsData?.total ?? 0}</p>
+			</div>
+		</div>
+	</div>
+
 	<!-- Summary Metrics Cards -->
-	<CommentAuditMetrics
-		{summary}
-		activeStatus={selectedStatus}
-		isLoading={isLoading}
-		onselectstatus={handleStatusChange}
-	/>
+	<div class="print:hidden">
+		<CommentAuditMetrics
+			{summary}
+			activeStatus={selectedStatus}
+			isLoading={isLoading}
+			onselectstatus={handleStatusChange}
+		/>
+	</div>
 
 	<!-- Filter & Search Controls -->
-	<CommentAuditFilter
-		{products}
-		{selectedProductId}
-		{selectedStatus}
-		{searchQuery}
-		totalResults={commentsData?.total}
-		onproductchange={handleProductChange}
-		onstatuschange={handleStatusChange}
-		onsearchchange={handleSearchChange}
-		onreset={handleResetFilters}
-	/>
+	<div class="print:hidden">
+		<CommentAuditFilter
+			{products}
+			{selectedProductId}
+			{selectedStatus}
+			{searchQuery}
+			totalResults={commentsData?.total}
+			onproductchange={handleProductChange}
+			onstatuschange={handleStatusChange}
+			onsearchchange={handleSearchChange}
+			onreset={handleResetFilters}
+		/>
+	</div>
 
 	<!-- Interactive Comment Audit Table -->
 	<CommentAuditTable

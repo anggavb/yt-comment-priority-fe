@@ -57,7 +57,7 @@ export function downloadCsv(filename: string, csvContent: string): void {
 /**
  * Formats a number to 4 decimal places for academic matrix exports.
  */
-function fmt4(n: number | undefined | null): string {
+function formatMatrixDecimal(n: number | undefined | null): string {
 	if (n === undefined || n === null || isNaN(n)) return '0.0000';
 	return n.toFixed(4);
 }
@@ -78,8 +78,8 @@ export function generateDecisionMatrixCsv(leaderboard: RankingLeaderboard): stri
 		r.productName,
 		r.c1RequestCount,
 		r.c2UniqueRequester,
-		fmt4(r.c3AverageRequestLikes),
-		fmt4(r.c4RecentRequestRatio)
+		formatMatrixDecimal(r.c3AverageRequestLikes),
+		formatMatrixDecimal(r.c4RecentRequestRatio)
 	]);
 
 	// Append max values row
@@ -88,8 +88,8 @@ export function generateDecisionMatrixCsv(leaderboard: RankingLeaderboard): stri
 		'max(Xj)',
 		max.c1,
 		max.c2,
-		fmt4(max.c3),
-		fmt4(max.c4)
+		formatMatrixDecimal(max.c3),
+		formatMatrixDecimal(max.c4)
 	]);
 
 	return generateCsv(headers, rows);
@@ -109,10 +109,10 @@ export function generateNormalizedMatrixCsv(leaderboard: RankingLeaderboard): st
 
 	const rows: (string | number)[][] = leaderboard.normalizedMatrix.rows.map((r) => [
 		r.productName,
-		fmt4(r.r1),
-		fmt4(r.r2),
-		fmt4(r.r3),
-		fmt4(r.r4)
+		formatMatrixDecimal(r.r1),
+		formatMatrixDecimal(r.r2),
+		formatMatrixDecimal(r.r3),
+		formatMatrixDecimal(r.r4)
 	]);
 
 	return generateCsv(headers, rows);
@@ -133,11 +133,11 @@ export function generateWeightedMatrixCsv(leaderboard: RankingLeaderboard): stri
 
 	const rows: (string | number)[][] = leaderboard.weightedMatrix.rows.map((r) => [
 		r.productName,
-		fmt4(r.w1),
-		fmt4(r.w2),
-		fmt4(r.w3),
-		fmt4(r.w4),
-		fmt4(r.preferenceValue)
+		formatMatrixDecimal(r.w1),
+		formatMatrixDecimal(r.w2),
+		formatMatrixDecimal(r.w3),
+		formatMatrixDecimal(r.w4),
+		formatMatrixDecimal(r.preferenceValue)
 	]);
 
 	return generateCsv(headers, rows);
@@ -150,10 +150,10 @@ export function generateFinalRankingCsv(leaderboard: RankingLeaderboard): string
 	const headers = [
 		'Rank',
 		'Candidate Product',
-		'C1 Raw',
-		'C2 Raw',
-		'C3 Raw',
-		'C4 Raw',
+		'C1 (Decision Matrix)',
+		'C2 (Decision Matrix)',
+		'C3 (Decision Matrix)',
+		'C4 (Decision Matrix)',
 		'R1',
 		'R2',
 		'R3',
@@ -161,25 +161,25 @@ export function generateFinalRankingCsv(leaderboard: RankingLeaderboard): string
 		'Preference Value Vi'
 	];
 
-	const dm = leaderboard.decisionMatrix;
-	const nm = leaderboard.normalizedMatrix;
+	const dmMap = new Map(leaderboard.decisionMatrix.rows.map((d) => [d.productId, d]));
+	const nmMap = new Map(leaderboard.normalizedMatrix.rows.map((n) => [n.productId, n]));
 
 	const rows: (string | number)[][] = leaderboard.rankings.map((r) => {
-		const dmRow = dm.rows.find((d) => d.productId === r.productId);
-		const nmRow = nm.rows.find((n) => n.productId === r.productId);
+		const dmRow = dmMap.get(r.productId);
+		const nmRow = nmMap.get(r.productId);
 
 		return [
 			r.rank,
 			r.productName,
 			dmRow?.c1RequestCount ?? r.requestCount,
 			dmRow?.c2UniqueRequester ?? r.uniqueRequester,
-			fmt4(dmRow?.c3AverageRequestLikes ?? r.averageRequestLikes),
-			fmt4(dmRow?.c4RecentRequestRatio ?? r.recentRequestRatio),
-			fmt4(nmRow?.r1 ?? r.normalizedRequestCount),
-			fmt4(nmRow?.r2 ?? r.normalizedUniqueRequester),
-			fmt4(nmRow?.r3 ?? r.normalizedAverageLikes),
-			fmt4(nmRow?.r4 ?? r.normalizedRecentRequestRatio),
-			fmt4(r.preferenceValue)
+			formatMatrixDecimal(dmRow?.c3AverageRequestLikes ?? r.averageRequestLikes),
+			formatMatrixDecimal(dmRow?.c4RecentRequestRatio ?? r.recentRequestRatio),
+			formatMatrixDecimal(nmRow?.r1 ?? r.normalizedRequestCount),
+			formatMatrixDecimal(nmRow?.r2 ?? r.normalizedUniqueRequester),
+			formatMatrixDecimal(nmRow?.r3 ?? r.normalizedAverageLikes),
+			formatMatrixDecimal(nmRow?.r4 ?? r.normalizedRecentRequestRatio),
+			formatMatrixDecimal(r.preferenceValue)
 		];
 	});
 
@@ -187,7 +187,7 @@ export function generateFinalRankingCsv(leaderboard: RankingLeaderboard): string
 }
 
 /**
- * Generates CSV for Comment Audit Table (all comments with detected products & status).
+ * Generates CSV for Comment Audit Table (all comments with candidate product mentions & request status).
  */
 export function generateCommentAuditCsv(
 	comments: CommentWithMatches[],
@@ -197,7 +197,7 @@ export function generateCommentAuditCsv(
 		'Author',
 		'Published At',
 		'Comment Text',
-		'Detected Products',
+		'Candidate Products',
 		'Product Keywords',
 		'Request Keywords',
 		'Status',
@@ -209,7 +209,7 @@ export function generateCommentAuditCsv(
 	const rows: (string | number)[][] = comments.map((comment) => {
 		const matches = comment.matches || [];
 
-		// Detected products
+		// Candidate products
 		const detectedProductNames = Array.from(
 			new Set(matches.map((m) => productMap.get(m.productId) || m.productId).filter(Boolean))
 		);
@@ -228,7 +228,7 @@ export function generateCommentAuditCsv(
 		const reqKwCol = requestKeywords.length > 0 ? requestKeywords.join('; ') : '-';
 
 		// Status
-		let status = 'Unmatched';
+		let status: 'Request' | 'Mention' | 'Unmatched' = 'Unmatched';
 		if (matches.some((m) => m.isRequest)) {
 			status = 'Request';
 		} else if (matches.length > 0) {
