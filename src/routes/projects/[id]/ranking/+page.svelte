@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiClient } from '$lib/api';
-	import type { RankingLeaderboard } from '$lib/types';
+	import type { CriteriaCode, RankingLeaderboard } from '$lib/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Table from '$lib/components/ui/table';
@@ -16,7 +16,8 @@
 		GridTableIcon,
 		PercentSquareIcon,
 		FilterIcon,
-		TrophyIcon
+		TrophyIcon,
+		Download04Icon
 	} from '@hugeicons/core-free-icons';
 
 	let { data } = $props();
@@ -58,8 +59,15 @@
 		return ok;
 	});
 
+	/** Formatted calculatedAt timestamp — derived so it doesn't re-evaluate on every render */
+	const calculatedAtFormatted = $derived(
+		leaderboard
+			? new Date(leaderboard.calculatedAt).toLocaleString('id-ID')
+			: ''
+	);
+
 	/** Returns criteria weight as percentage string */
-	function weightPct(code: 'C1' | 'C2' | 'C3' | 'C4'): string {
+	function weightPct(code: CriteriaCode): string {
 		if (!leaderboard) return '—';
 		const w = leaderboard.criteriaWeights[code] ?? 0;
 		return `${Math.round(w * 100)}%`;
@@ -68,6 +76,42 @@
 	/** Formats a number to 4 decimal places */
 	function fmt4(n: number): string {
 		return n.toFixed(4);
+	}
+
+	/** Exports the ranking results as a CSV file (ADR-0003) */
+	function exportCSV() {
+		if (!leaderboard) return;
+
+		const headers = ['Rank', 'Product', 'C1 Request Count', 'C2 Unique Requester', 'C3 Avg Likes', 'C4 Recent Ratio', 'R1', 'R2', 'R3', 'R4', 'Preference Value Vi'];
+		const dm = leaderboard.decisionMatrix;
+		const nm = leaderboard.normalizedMatrix;
+
+		const rows = leaderboard.rankings.map((r) => {
+			const dmRow = dm.rows.find((d) => d.productId === r.productId);
+			const nmRow = nm.rows.find((n) => n.productId === r.productId);
+			return [
+				r.rank,
+				r.productName,
+				dmRow?.c1RequestCount ?? r.requestCount,
+				dmRow?.c2UniqueRequester ?? r.uniqueRequester,
+				dmRow?.c3AverageRequestLikes?.toFixed(4) ?? r.averageRequestLikes.toFixed(4),
+				dmRow?.c4RecentRequestRatio?.toFixed(4) ?? r.recentRequestRatio.toFixed(4),
+				nmRow?.r1.toFixed(4) ?? '',
+				nmRow?.r2.toFixed(4) ?? '',
+				nmRow?.r3.toFixed(4) ?? '',
+				nmRow?.r4.toFixed(4) ?? '',
+				r.preferenceValue.toFixed(4)
+			].join(',');
+		});
+
+		const csv = [headers.join(','), ...rows].join('\n');
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `ranking-${data.project.id}-${new Date().toISOString().slice(0, 10)}.csv`;
+		link.click();
+		URL.revokeObjectURL(url);
 	}
 </script>
 
@@ -340,20 +384,31 @@
 							Tabel 4 — Leaderboard Prioritas Ulasan (V<sub>i</sub>)
 						</h3>
 						<p class="text-[10px] text-muted-foreground mt-0.5">
-							Dihitung {new Date(leaderboard.calculatedAt).toLocaleString('id-ID')}
+							Dihitung {calculatedAtFormatted}
 						</p>
 					</div>
 				</div>
-				<Badge
-					variant="outline"
-					class="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-				>
-					Dihitung via SAW
-				</Badge>
+				<div class="flex items-center gap-2 flex-wrap">
+					<Button
+						variant="outline"
+						class="gap-1.5 text-xs"
+						onclick={exportCSV}
+						disabled={!leaderboard}
+					>
+						<HugeiconsIcon icon={Download04Icon} class="size-3.5" />
+						<span>Ekspor CSV</span>
+					</Button>
+					<Badge
+						variant="outline"
+						class="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+					>
+						Dihitung via SAW
+					</Badge>
+				</div>
 			</div>
 
 			<!-- Podium display (top 3) -->
-			{#if leaderboard.rankings.length >= 2}
+			{#if leaderboard.rankings.length >= 3}
 				<div class="px-4 pt-4 pb-2 border-b border-border/60 bg-muted/20">
 					<div class="flex items-end justify-center gap-3">
 						<!-- 2nd place -->

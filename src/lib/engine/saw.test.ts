@@ -350,14 +350,42 @@ describe('SAW Engine — Final Rankings (Vi)', () => {
 	});
 
 	it('assigns stable rank via productId tie-breaking when Vi values are equal', () => {
-		// Two products with same Vi — result order must be consistent
-		const dm = computeDecisionMatrix(matches, comments, products, c4Config);
+		// Build a scenario where prod-b and prod-c have identical metrics (→ identical Vi)
+		const tiedMatches: CommentMatch[] = [
+			{
+				id: 'tm1', commentId: 'c1', productId: 'prod-b',
+				matchedProductKeyword: 'pb', matchedRequestKeyword: 'review',
+				isMention: true, isRequest: true, createdAt: ''
+			},
+			{
+				id: 'tm2', commentId: 'c1', productId: 'prod-c',
+				matchedProductKeyword: 'pc', matchedRequestKeyword: 'review',
+				isMention: true, isRequest: true, createdAt: ''
+			}
+		];
+		const tiedComments: Comment[] = [
+			{
+				id: 'c1', youtubeVideoId: 'v1', youtubeCommentId: 'yt1',
+				authorChannelId: 'user-1', authorName: 'U1', text: 'test',
+				likeCount: 5, publishedAt: '2026-05-20T00:00:00Z', createdAt: ''
+			}
+		];
+		const dm = computeDecisionMatrix(tiedMatches, tiedComments, products, c4Config);
 		const nm = computeNormalizedMatrix(dm);
 		const wm = computeWeightedMatrix(nm, weights);
-		const r1 = computeRankings(wm, dm, nm, 'proj-1');
+		const rankings = computeRankings(wm, dm, nm, 'proj-1');
+
+		// prod-b and prod-c now have identical Vi (same single request, same comment)
+		const bRank = rankings.find((r) => r.productId === 'prod-b')!;
+		const cRank = rankings.find((r) => r.productId === 'prod-c')!;
+		expect(bRank.preferenceValue).toBeCloseTo(cRank.preferenceValue, 4);
+
+		// Tie-breaking: lexicographic ascending by productId → prod-b < prod-c
+		expect(bRank.rank).toBeLessThan(cRank.rank);
+
+		// Determinism: repeated call produces same order
 		const r2 = computeRankings(wm, dm, nm, 'proj-1');
-		// Repeated calls must produce identical order
-		expect(r1.map((r) => r.productId)).toEqual(r2.map((r) => r.productId));
+		expect(r2.map((r) => r.productId)).toEqual(rankings.map((r) => r.productId));
 	});
 
 	it('runSAW orchestrator returns a complete RankingLeaderboard', () => {

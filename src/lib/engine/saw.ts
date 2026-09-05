@@ -212,6 +212,7 @@ export function computeRankings(
 				normalizedRequestCount: norm.r1,
 				normalizedUniqueRequester: norm.r2,
 				normalizedAverageLikes: norm.r3,
+				normalizedRecentRequestRatio: norm.r4,
 				preferenceValue: weightedRow.preferenceValue,
 				rank: idx + 1,
 				calculatedAt: new Date().toISOString()

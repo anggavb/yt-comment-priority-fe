@@ -182,6 +182,7 @@ export interface RankingResult {
 	normalizedRequestCount: number;
 	normalizedUniqueRequester: number;
 	normalizedAverageLikes: number;
+	normalizedRecentRequestRatio: number;
 	preferenceValue: number; // Preference Value Vi (CONTEXT.md)
 	/** @deprecated Use preferenceValue */
 	finalScore?: number;

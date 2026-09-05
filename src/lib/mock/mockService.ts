@@ -660,7 +660,7 @@ export class MockService {
 					normalizedRequestCount: norm.r1,
 					normalizedUniqueRequester: norm.r2,
 					normalizedAverageLikes: norm.r3,
-					normalizedRecentRatio: norm.r4,
+					normalizedRecentRequestRatio: norm.r4,
 					preferenceValue: weightedRow.preferenceValue,
 					finalScore: weightedRow.preferenceValue,
 					rank: 0,
