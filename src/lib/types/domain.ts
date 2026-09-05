@@ -39,6 +39,7 @@ export interface YouTubeVideo {
 	publishedAt: string;
 	fetchedAt: string | null;
 	commentCount?: number;
+	maxComments?: number;
 	fetchStatus?: VideoFetchStatus;
 	createdAt: string;
 }

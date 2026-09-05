@@ -36,6 +36,11 @@ import {
 	initialRequestKeywords,
 	initialVideos
 } from './data';
+import {
+	extractYouTubeVideoId,
+	toCanonicalWatchUrl,
+	getYouTubeThumbnail
+} from '$lib/utils/youtube';
 
 function clone<T>(val: T): T {
 	return JSON.parse(JSON.stringify(val));
@@ -156,22 +161,22 @@ export class MockService {
 	}
 
 	async addVideo(projectId: string, dto: AddVideoDto): Promise<YouTubeVideo> {
-		// Extract video ID from URL
-		let videoId = 'dQw4w9WgXcQ';
-		const match = dto.url.match(/(?:v=|\/embed\/|youtu\.be\/|\/shorts\/)([a-zA-Z0-9_-]{11})/);
-		if (match) videoId = match[1];
+		// Extract video ID from URL or bare ID
+		const videoId = extractYouTubeVideoId(dto.url) || 'dQw4w9WgXcQ';
+		const canonicalUrl = dto.url.includes('http') ? dto.url : toCanonicalWatchUrl(videoId);
 
 		const newVideo: YouTubeVideo = {
 			id: `vid-${Date.now()}`,
 			analysisProjectId: projectId,
 			youtubeVideoId: videoId,
-			url: dto.url,
-			title: `YouTube Video (${videoId})`,
-			channelTitle: 'YouTube Creator',
-			thumbnailUrl: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60`,
+			url: canonicalUrl,
+			title: dto.title || `YouTube Video (${videoId})`,
+			channelTitle: dto.channelTitle || 'YouTube Creator',
+			thumbnailUrl: dto.thumbnailUrl || getYouTubeThumbnail(videoId, 'hq'),
 			publishedAt: new Date().toISOString(),
 			fetchedAt: null,
 			commentCount: 0,
+			maxComments: dto.maxComments || 500,
 			fetchStatus: 'PENDING',
 			createdAt: new Date().toISOString()
 		};
@@ -196,7 +201,9 @@ export class MockService {
 		const project = this.projects.find((p) => p.id === deleted.analysisProjectId);
 		if (project) {
 			project.videoCount = this.videos.filter((v) => v.analysisProjectId === project.id).length;
-			project.commentCount = this.comments.length;
+			project.commentCount = this.comments.filter((c) =>
+				this.videos.some((v) => v.analysisProjectId === project.id && v.id === c.youtubeVideoId)
+			).length;
 			project.updatedAt = new Date().toISOString();
 		}
 		return true;
@@ -206,23 +213,32 @@ export class MockService {
 		const video = this.videos.find((v) => v.id === videoId);
 		if (!video) return null;
 
+		const limit = options?.maxComments ?? video.maxComments ?? 500;
+		video.maxComments = limit;
 		video.fetchStatus = 'FETCHING';
 
-		// In mock mode, associate initial comments with this video if none exist yet
-		const existingComments = this.comments.filter((c) => c.youtubeVideoId === videoId);
-		if (existingComments.length === 0) {
-			const limit = options?.maxComments || 45;
-			const sampleComments = initialComments.slice(0, limit).map((c, i) => ({
-				...clone(c),
+		// Simulate background processing delay so polling observes FETCHING state
+		await new Promise((r) => setTimeout(r, 600));
+
+		// Remove previous comments for this video if refetching
+		this.comments = this.comments.filter((c) => c.youtubeVideoId !== videoId);
+
+		const generated: Comment[] = [];
+		for (let i = 0; i < limit; i++) {
+			const sample = initialComments[i % initialComments.length];
+			generated.push({
+				...clone(sample),
 				id: `cmt-${videoId}-${i}`,
-				youtubeVideoId: videoId
-			}));
-			this.comments.push(...sampleComments);
+				youtubeVideoId: videoId,
+				youtubeCommentId: `yt-cmt-${videoId}-${i}`,
+				text: i < initialComments.length ? sample.text : `${sample.text} (#${i + 1})`
+			});
 		}
+		this.comments.push(...generated);
 
 		video.fetchStatus = 'COMPLETED';
 		video.fetchedAt = new Date().toISOString();
-		video.commentCount = this.comments.filter((c) => c.youtubeVideoId === videoId).length;
+		video.commentCount = limit;
 
 		const project = this.projects.find((p) => p.id === video.analysisProjectId);
 		if (project) {

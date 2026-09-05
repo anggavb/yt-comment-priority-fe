@@ -57,6 +57,9 @@ export interface UpdateProjectDto {
 export interface AddVideoDto {
 	url: string;
 	maxComments?: number;
+	title?: string;
+	thumbnailUrl?: string;
+	channelTitle?: string;
 }
 
 export interface FetchCommentsOptions {
