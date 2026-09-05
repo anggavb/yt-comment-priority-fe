@@ -46,30 +46,13 @@ function clone<T>(val: T): T {
 	return JSON.parse(JSON.stringify(val));
 }
 
-function escapeRegex(string: string): string {
-	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import {
+	preprocessText,
+	containsWordBoundaryKeyword,
+	processProjectComments
+} from '$lib/engine/commentProcessor';
 
-/**
- * Text Preprocessing per FR-07 and ADR-0004
- */
-export function preprocessText(text: string): string {
-	return text
-		.toLowerCase()
-		.replace(/[^\w\s]/g, ' ') // replace punctuation with space
-		.replace(/\s+/g, ' ') // collapse multiple whitespaces
-		.trim();
-}
-
-/**
- * Word boundary keyword matching per ADR-0004
- */
-export function containsWordBoundaryKeyword(cleanText: string, keyword: string): boolean {
-	const cleanKw = preprocessText(keyword);
-	if (!cleanKw) return false;
-	const regex = new RegExp(`\\b${escapeRegex(cleanKw)}\\b`, 'i');
-	return regex.test(cleanText);
-}
+export { preprocessText, containsWordBoundaryKeyword };
 
 export class MockService {
 	private projects: AnalysisProject[] = clone(initialProjects);
@@ -381,64 +364,13 @@ export class MockService {
 		const projectProductIds = new Set(projectProducts.map((p) => p.id));
 		this.commentMatches = this.commentMatches.filter((m) => !projectProductIds.has(m.productId));
 
-		const newMatches: CommentMatch[] = [];
-		const matchedCommentIds = new Set<string>();
-		const requestCommentIds = new Set<string>();
+		const { matches, summary } = processProjectComments(
+			projectComments,
+			projectProducts,
+			this.requestKeywords
+		);
 
-		for (const comment of projectComments) {
-			const cleanText = preprocessText(comment.text);
-
-			// Check each product
-			for (const product of projectProducts) {
-				let matchedProductKw: string | null = null;
-				for (const kwObj of product.keywords) {
-					if (containsWordBoundaryKeyword(cleanText, kwObj.keyword)) {
-						matchedProductKw = kwObj.keyword;
-						break;
-					}
-				}
-
-				if (matchedProductKw) {
-					// Check request keyword
-					let matchedReqKw: string | null = null;
-					for (const reqKw of this.requestKeywords) {
-						if (containsWordBoundaryKeyword(cleanText, reqKw.keyword)) {
-							matchedReqKw = reqKw.keyword;
-							break;
-						}
-					}
-
-					const isRequest = matchedReqKw !== null;
-					matchedCommentIds.add(comment.id);
-					if (isRequest) {
-						requestCommentIds.add(comment.id);
-					}
-
-					const matchRecord: CommentMatch = {
-						id: `match-${Date.now()}-${newMatches.length}`,
-						commentId: comment.id,
-						productId: product.id,
-						matchedProductKeyword: matchedProductKw,
-						matchedRequestKeyword: matchedReqKw,
-						isMention: true,
-						isRequest,
-						createdAt: new Date().toISOString(),
-						comment: clone(comment),
-						product: clone(product)
-					};
-					newMatches.push(matchRecord);
-				}
-			}
-		}
-
-		this.commentMatches.push(...newMatches);
-
-		const summary: CommentAuditSummary = {
-			totalComments: projectComments.length,
-			matchedComments: matchedCommentIds.size,
-			requestComments: requestCommentIds.size,
-			unmatchedComments: projectComments.length - matchedCommentIds.size
-		};
+		this.commentMatches.push(...matches);
 
 		const project = this.projects.find((p) => p.id === projectId);
 		if (project) {
@@ -449,7 +381,7 @@ export class MockService {
 
 		return {
 			processedCount: projectComments.length,
-			matchesFound: newMatches.length,
+			matchesFound: matches.length,
 			summary
 		};
 	}
@@ -470,6 +402,15 @@ export class MockService {
 
 		if (filter?.productId) {
 			filtered = filtered.filter((c) => c.matches?.some((m) => m.productId === filter.productId));
+		}
+		if (filter?.status) {
+			if (filter.status === 'mention') {
+				filtered = filtered.filter((c) => (c.matches?.length || 0) > 0);
+			} else if (filter.status === 'request') {
+				filtered = filtered.filter((c) => c.matches?.some((m) => m.isRequest));
+			} else if (filter.status === 'unmatched') {
+				filtered = filtered.filter((c) => (c.matches?.length || 0) === 0);
+			}
 		}
 		if (filter?.isMention !== undefined) {
 			if (filter.isMention) {

@@ -183,6 +183,7 @@ export class HttpApiClient implements ApiClient {
 	): Promise<PaginatedResponse<Comment & { matches?: CommentMatch[] }>> {
 		const params = new URLSearchParams();
 		if (filter?.productId) params.append('productId', filter.productId);
+		if (filter?.status) params.append('status', filter.status);
 		if (filter?.isMention !== undefined) params.append('isMention', String(filter.isMention));
 		if (filter?.isRequest !== undefined) params.append('isRequest', String(filter.isRequest));
 		if (filter?.search) params.append('search', filter.search);

@@ -95,6 +95,12 @@ export interface CommentMatch {
 	product?: CandidateProduct;
 }
 
+export type CommentAuditStatus = 'all' | 'mention' | 'request' | 'unmatched';
+
+export type CommentWithMatches = Comment & {
+	matches?: CommentMatch[];
+};
+
 export type CriteriaCode = 'C1' | 'C2' | 'C3' | 'C4';
 export type CriteriaAttribute = 'benefit' | 'cost';
 

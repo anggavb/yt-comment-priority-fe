@@ -1,4 +1,5 @@
 import type {
+	CommentAuditStatus,
 	CommentAuditSummary,
 	CriteriaCode,
 	C4TimeAnchorConfig
@@ -39,6 +40,7 @@ export interface CommentFilterDto {
 	productId?: string;
 	isMention?: boolean;
 	isRequest?: boolean;
+	status?: CommentAuditStatus;
 	search?: string;
 	page?: number;
 	limit?: number;
