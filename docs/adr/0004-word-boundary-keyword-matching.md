@@ -1,0 +1,3 @@
+# Word Boundary Keyword Matching
+
+Deteksi kemunculan kata kunci produk dan kata kunci permintaan pada teks komentar menggunakan pencocokan batas kata utuh (word boundary regex: `\b<keyword>\b`) setelah tahap pra-pemrosesan (pembersihan tanda baca, normalisasi spasi, dan lowercase), bukan pencocokan substring mentah (`includes`). Keputusan ini diambil untuk mencegah tingginya angka *false positive* pada kata kunci pendek (seperti nama model produk "V1", "RK", atau kata permintaan "tes") yang berpotensi keliru terdeteksi di dalam kata-kata bahasa Indonesia lain (seperti "pekerjaan", "tesis", atau "review").
