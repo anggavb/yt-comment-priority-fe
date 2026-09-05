@@ -71,9 +71,9 @@
 	<title>{project.name} - YT Priority</title>
 </svelte:head>
 
-<div class="min-h-[calc(100vh-3.5rem)] flex flex-col bg-background">
+<div class="min-h-[calc(100vh-3.5rem)] flex flex-col bg-background print:min-h-0 print:bg-white print:text-black">
 	<!-- Project Shell Header -->
-	<header class="border-b border-border/70 bg-card/40 pt-6 pb-4 transition-colors">
+	<header class="border-b border-border/70 bg-card/40 pt-6 pb-4 transition-colors print:hidden">
 		<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 			<!-- Breadcrumb & Back navigation -->
 			<div class="flex items-center justify-between gap-4">
@@ -152,10 +152,12 @@
 	</header>
 
 	<!-- Persistent Sub-navigation Tabs -->
-	<ProjectShellNav {project} />
+	<div class="print:hidden">
+		<ProjectShellNav {project} />
+	</div>
 
 	<!-- Active Sub-view Content -->
-	<main class="flex-1 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+	<main class="flex-1 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 print:p-0 print:m-0 print:max-w-none">
 		{@render children()}
 	</main>
 </div>

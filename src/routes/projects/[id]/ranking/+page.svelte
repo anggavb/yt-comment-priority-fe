@@ -17,8 +17,16 @@
 		PercentSquareIcon,
 		FilterIcon,
 		TrophyIcon,
-		Download04Icon
+		Download04Icon,
+		PrinterIcon
 	} from '@hugeicons/core-free-icons';
+	import {
+		downloadCsv,
+		generateDecisionMatrixCsv,
+		generateNormalizedMatrixCsv,
+		generateWeightedMatrixCsv,
+		generateFinalRankingCsv
+	} from '$lib/utils/csv';
 
 	let { data } = $props();
 	let leaderboard = $state<RankingLeaderboard | null>(null);
@@ -78,40 +86,42 @@
 		return n.toFixed(4);
 	}
 
-	/** Exports the ranking results as a CSV file (ADR-0003) */
-	function exportCSV() {
+	/** Export Table 1: Initial Decision Matrix (Xij) */
+	function exportDecisionMatrix() {
 		if (!leaderboard) return;
+		const csv = generateDecisionMatrixCsv(leaderboard);
+		const dateStr = new Date().toISOString().slice(0, 10);
+		downloadCsv(`decision-matrix-${data.project.id}-${dateStr}.csv`, csv);
+	}
 
-		const headers = ['Rank', 'Product', 'C1 Request Count', 'C2 Unique Requester', 'C3 Avg Likes', 'C4 Recent Ratio', 'R1', 'R2', 'R3', 'R4', 'Preference Value Vi'];
-		const dm = leaderboard.decisionMatrix;
-		const nm = leaderboard.normalizedMatrix;
+	/** Export Table 2: Normalized Matrix (Rij) */
+	function exportNormalizedMatrix() {
+		if (!leaderboard) return;
+		const csv = generateNormalizedMatrixCsv(leaderboard);
+		const dateStr = new Date().toISOString().slice(0, 10);
+		downloadCsv(`normalized-matrix-${data.project.id}-${dateStr}.csv`, csv);
+	}
 
-		const rows = leaderboard.rankings.map((r) => {
-			const dmRow = dm.rows.find((d) => d.productId === r.productId);
-			const nmRow = nm.rows.find((n) => n.productId === r.productId);
-			return [
-				r.rank,
-				r.productName,
-				dmRow?.c1RequestCount ?? r.requestCount,
-				dmRow?.c2UniqueRequester ?? r.uniqueRequester,
-				dmRow?.c3AverageRequestLikes?.toFixed(4) ?? r.averageRequestLikes.toFixed(4),
-				dmRow?.c4RecentRequestRatio?.toFixed(4) ?? r.recentRequestRatio.toFixed(4),
-				nmRow?.r1.toFixed(4) ?? '',
-				nmRow?.r2.toFixed(4) ?? '',
-				nmRow?.r3.toFixed(4) ?? '',
-				nmRow?.r4.toFixed(4) ?? '',
-				r.preferenceValue.toFixed(4)
-			].join(',');
-		});
+	/** Export Table 3: Weighted Matrix (Wj * Rij) */
+	function exportWeightedMatrix() {
+		if (!leaderboard) return;
+		const csv = generateWeightedMatrixCsv(leaderboard);
+		const dateStr = new Date().toISOString().slice(0, 10);
+		downloadCsv(`weighted-matrix-${data.project.id}-${dateStr}.csv`, csv);
+	}
 
-		const csv = [headers.join(','), ...rows].join('\n');
-		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `ranking-${data.project.id}-${new Date().toISOString().slice(0, 10)}.csv`;
-		link.click();
-		URL.revokeObjectURL(url);
+	/** Export Table 4: Final Ranking Leaderboard (Vi) */
+	function exportFinalRanking() {
+		if (!leaderboard) return;
+		const csv = generateFinalRankingCsv(leaderboard);
+		const dateStr = new Date().toISOString().slice(0, 10);
+		downloadCsv(`final-ranking-${data.project.id}-${dateStr}.csv`, csv);
+	}
+
+	function handlePrint() {
+		if (typeof window !== 'undefined') {
+			window.print();
+		}
 	}
 </script>
 
@@ -131,19 +141,32 @@
 			</p>
 		</div>
 
-		<Button
-			class="gap-1.5 self-start sm:self-auto bg-[#FF0000] hover:bg-[#FF0000]/90 text-white text-xs"
-			onclick={handleRecalculate}
-			disabled={isCalculating || isLoading}
-		>
-			{#if isCalculating}
-				<HugeiconsIcon icon={Loading03Icon} class="size-3.5 animate-spin" />
-				<span>Menghitung...</span>
-			{:else}
-				<HugeiconsIcon icon={CalculatorIcon} class="size-3.5" />
-				<span>Hitung Ulang SAW</span>
-			{/if}
-		</Button>
+		<div class="flex items-center gap-2 flex-wrap print:hidden">
+			<Button
+				variant="outline"
+				class="gap-1.5 text-xs"
+				onclick={handlePrint}
+				disabled={!leaderboard || leaderboard.rankings.length === 0}
+				title="Cetak seluruh tabel perhitungan SAW ke format PDF / printer untuk dokumen skripsi"
+			>
+				<HugeiconsIcon icon={PrinterIcon} class="size-3.5" />
+				<span>Cetak / PDF</span>
+			</Button>
+
+			<Button
+				class="gap-1.5 self-start sm:self-auto bg-[#FF0000] hover:bg-[#FF0000]/90 text-white text-xs"
+				onclick={handleRecalculate}
+				disabled={isCalculating || isLoading}
+			>
+				{#if isCalculating}
+					<HugeiconsIcon icon={Loading03Icon} class="size-3.5 animate-spin" />
+					<span>Menghitung...</span>
+				{:else}
+					<HugeiconsIcon icon={CalculatorIcon} class="size-3.5" />
+					<span>Hitung Ulang SAW</span>
+				{/if}
+			</Button>
+		</div>
 	</div>
 
 	<!-- Loading state -->
@@ -177,6 +200,41 @@
 		</div>
 
 	{:else}
+		<!-- Print-Only Academic Document Header for Thesis Appendices -->
+		<div class="hidden print:block mb-8 pb-4 border-b-2 border-neutral-800 text-black">
+			<div class="flex items-start justify-between gap-4">
+				<div>
+					<h1 class="text-xl font-bold uppercase tracking-tight text-black">
+						Lampiran: Hasil Perhitungan Metode Simple Additive Weighting (SAW)
+					</h1>
+					<p class="text-sm font-semibold mt-1 text-neutral-800">
+						Analysis Project: {data.project.name}
+					</p>
+					{#if data.project.description}
+						<p class="text-xs text-neutral-600 mt-0.5 max-w-2xl">{data.project.description}</p>
+					{/if}
+				</div>
+				<div class="text-right text-xs text-neutral-600 font-mono shrink-0">
+					<p>Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+					{#if leaderboard?.calculatedAt}
+						<p>Waktu Hitung: {calculatedAtFormatted}</p>
+					{/if}
+				</div>
+			</div>
+			{#if leaderboard}
+				<div class="mt-3 pt-2 border-t border-dashed border-neutral-400 flex items-center gap-4 text-xs font-mono text-neutral-700">
+					<span class="font-bold font-sans text-black">Bobot Kriteria:</span>
+					<span>C1: {weightPct('C1')}</span>
+					<span>·</span>
+					<span>C2: {weightPct('C2')}</span>
+					<span>·</span>
+					<span>C3: {weightPct('C3')}</span>
+					<span>·</span>
+					<span>C4: {weightPct('C4')}</span>
+				</div>
+			{/if}
+		</div>
+
 		<!-- ══════════════════════════════════════════════════════════════
 		     TABLE 1 — Initial Decision Matrix (Xij)
 		══════════════════════════════════════════════════════════════ -->
@@ -191,9 +249,22 @@
 						<p class="text-[10px] text-muted-foreground mt-0.5">Nilai metrik mentah sebelum normalisasi</p>
 					</div>
 				</div>
-				<Badge variant="outline" class="text-[10px] border-blue-500/30 bg-blue-500/10 text-blue-600">
-					Raw Metrics
-				</Badge>
+				<div class="flex items-center gap-2 print:hidden">
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 px-2.5 text-xs gap-1.5"
+						onclick={exportDecisionMatrix}
+						disabled={!leaderboard}
+						title="Ekspor Matriks Keputusan (Xij) ke file CSV"
+					>
+						<HugeiconsIcon icon={Download04Icon} class="size-3 text-muted-foreground" />
+						<span>Ekspor CSV</span>
+					</Button>
+					<Badge variant="outline" class="text-[10px] border-blue-500/30 bg-blue-500/10 text-blue-600">
+						Raw Metrics
+					</Badge>
+				</div>
 			</div>
 
 			<div class="overflow-x-auto">
@@ -281,6 +352,17 @@
 							Verifikasi Gagal
 						</Badge>
 					{/if}
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 px-2.5 text-xs gap-1.5 print:hidden"
+						onclick={exportNormalizedMatrix}
+						disabled={!leaderboard}
+						title="Ekspor Matriks Ternormalisasi (Rij) ke file CSV"
+					>
+						<HugeiconsIcon icon={Download04Icon} class="size-3 text-muted-foreground" />
+						<span>Ekspor CSV</span>
+					</Button>
 					<Badge variant="outline" class="text-[10px] border-violet-500/30 bg-violet-500/10 text-violet-600 font-mono">
 						R<sub>ij</sub> = X<sub>ij</sub> / max(X<sub>j</sub>)
 					</Badge>
@@ -329,9 +411,22 @@
 						</p>
 					</div>
 				</div>
-				<Badge variant="outline" class="text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-600">
-					Weighted Scores
-				</Badge>
+				<div class="flex items-center gap-2 print:hidden">
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-7 px-2.5 text-xs gap-1.5"
+						onclick={exportWeightedMatrix}
+						disabled={!leaderboard}
+						title="Ekspor Matriks Terbobot ke file CSV"
+					>
+						<HugeiconsIcon icon={Download04Icon} class="size-3 text-muted-foreground" />
+						<span>Ekspor CSV</span>
+					</Button>
+					<Badge variant="outline" class="text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-600">
+						Weighted Scores
+					</Badge>
+				</div>
 			</div>
 
 			<div class="overflow-x-auto">
@@ -388,12 +483,13 @@
 						</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-2 flex-wrap">
+				<div class="flex items-center gap-2 flex-wrap print:hidden">
 					<Button
 						variant="outline"
 						class="gap-1.5 text-xs"
-						onclick={exportCSV}
+						onclick={exportFinalRanking}
 						disabled={!leaderboard}
+						title="Ekspor Leaderboard Prioritas Ulasan (Vi) ke file CSV"
 					>
 						<HugeiconsIcon icon={Download04Icon} class="size-3.5" />
 						<span>Ekspor CSV</span>
@@ -409,7 +505,7 @@
 
 			<!-- Podium display (top 3) -->
 			{#if leaderboard.rankings.length >= 3}
-				<div class="px-4 pt-4 pb-2 border-b border-border/60 bg-muted/20">
+				<div class="px-4 pt-4 pb-2 border-b border-border/60 bg-muted/20 print:hidden">
 					<div class="flex items-end justify-center gap-3">
 						<!-- 2nd place -->
 						{#if leaderboard.rankings[1]}
@@ -523,10 +619,10 @@
 
 			<!-- Trophy icon callout for winner -->
 			{#if leaderboard.rankings.length > 0}
-				<div class="p-3 border-t border-border/60 bg-muted/20 flex items-center gap-2">
-					<HugeiconsIcon icon={TrophyIcon} class="size-4 text-amber-500 shrink-0" />
-					<p class="text-[10px] text-muted-foreground">
-						<span class="font-semibold text-foreground">{leaderboard.rankings[0].productName}</span>
+				<div class="p-3 border-t border-border/60 bg-muted/20 flex items-center gap-2 print:border-t print:border-neutral-300 print:bg-transparent">
+					<HugeiconsIcon icon={TrophyIcon} class="size-4 text-amber-500 shrink-0 print:hidden" />
+					<p class="text-[10px] text-muted-foreground print:text-neutral-700 print:text-xs">
+						<span class="font-semibold text-foreground print:text-black">{leaderboard.rankings[0].productName}</span>
 						diprioritaskan sebagai produk dengan Preference Value tertinggi (V<sub>i</sub> =
 						{leaderboard.rankings[0].preferenceValue.toFixed(4)}).
 					</p>

@@ -1,4 +1,4 @@
-<footer class="mt-auto border-t border-border/60 bg-muted/20 py-8 transition-colors">
+<footer class="mt-auto border-t border-border/60 bg-muted/20 py-8 transition-colors print:hidden">
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		<div class="flex flex-col items-center justify-between gap-4 md:flex-row">
 			<div class="flex flex-col items-center gap-1 text-center md:items-start md:text-left">

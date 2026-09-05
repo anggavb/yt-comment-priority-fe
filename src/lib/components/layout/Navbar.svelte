@@ -58,7 +58,7 @@
 </script>
 
 <header
-	class="sticky top-0 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur-md transition-colors"
+	class="sticky top-0 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur-md transition-colors print:hidden"
 >
 	<div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 		<!-- Brand & Logo -->

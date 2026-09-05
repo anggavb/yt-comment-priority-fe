@@ -15,8 +15,11 @@
 	import {
 		PlayIcon,
 		RefreshIcon,
-		CheckmarkCircle01Icon
+		CheckmarkCircle01Icon,
+		Download04Icon,
+		Loading03Icon
 	} from '@hugeicons/core-free-icons';
+	import { downloadCsv, generateCommentAuditCsv } from '$lib/utils/csv';
 	import {
 		CommentAuditMetrics,
 		CommentAuditFilter,
@@ -42,6 +45,7 @@
 	// UI loading and dialog states
 	let isLoading = $state(true);
 	let isTableLoading = $state(false);
+	let isExportingCsv = $state(false);
 	let isProcessDialogOpen = $state(false);
 	let isDetailDialogOpen = $state(false);
 	let selectedComment = $state<CommentWithMatches | null>(null);
@@ -159,6 +163,25 @@
 	async function handleProcessingCompleted() {
 		await Promise.all([loadMatches(), loadComments()]);
 	}
+
+	async function handleExportCsv() {
+		isExportingCsv = true;
+		try {
+			const res = await apiClient.getComments(data.project.id, {
+				productId: selectedProductId || undefined,
+				status: selectedStatus,
+				search: searchQuery.trim() || undefined,
+				limit: 10000
+			});
+			const csv = generateCommentAuditCsv(res.data, products);
+			const dateStr = new Date().toISOString().slice(0, 10);
+			downloadCsv(`comment-audit-${data.project.id}-${dateStr}.csv`, csv);
+		} catch (err: unknown) {
+			console.error('Failed to export comment audit CSV:', err);
+		} finally {
+			isExportingCsv = false;
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -186,7 +209,24 @@
 			</p>
 		</div>
 
-		<div class="flex items-center gap-2 self-start sm:self-auto">
+		<div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+			<Button
+				variant="outline"
+				size="sm"
+				class="gap-1.5 text-xs"
+				onclick={handleExportCsv}
+				disabled={isExportingCsv || (commentsData?.total ?? 0) === 0}
+				title="Ekspor seluruh data audit komentar ke format CSV untuk analisis tesis"
+			>
+				{#if isExportingCsv}
+					<HugeiconsIcon icon={Loading03Icon} class="size-3.5 animate-spin" />
+					<span>Mengekspor...</span>
+				{:else}
+					<HugeiconsIcon icon={Download04Icon} class="size-3.5" />
+					<span>Ekspor CSV</span>
+				{/if}
+			</Button>
+
 			<Button
 				variant="outline"
 				size="sm"
