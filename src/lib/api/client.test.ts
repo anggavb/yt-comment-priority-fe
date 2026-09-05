@@ -82,6 +82,7 @@ describe('DualModeApiClient and Adapter Architecture', () => {
 
 		const leaderboard = await client.calculateRanking('proj-desk-setup-2026');
 		expect(leaderboard.rankings.length).toBe(5);
+		expect(leaderboard.rankings[0].preferenceValue).toBeGreaterThan(0);
 		expect(leaderboard.decisionMatrix).toBeDefined();
 		expect(leaderboard.normalizedMatrix).toBeDefined();
 		expect(leaderboard.weightedMatrix).toBeDefined();

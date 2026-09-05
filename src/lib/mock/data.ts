@@ -5,8 +5,28 @@ import type {
 	Criteria,
 	C4TimeAnchorConfig,
 	RequestKeyword,
+	YouTubeChannel,
 	YouTubeVideo
 } from '$lib/types';
+
+export const initialChannels: YouTubeChannel[] = [
+	{
+		id: 'chan-gadget-review-indo',
+		channelId: 'UC_gadget_review_id',
+		title: 'GadgetReview Indo',
+		description: 'Kanal ulasan gadget, setup produktivitas, dan peripheral kerja terpercaya Indonesia.',
+		customUrl: '@gadgetreviewindo',
+		thumbnailUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
+	},
+	{
+		id: 'chan-sobat-keyboard',
+		channelId: 'UC_sobat_keyboard',
+		title: 'Sobat Mechanical Keyboard',
+		description: 'Komunitas & ulasan khusus mechanical keyboard custom dan pre-built Indonesia.',
+		customUrl: '@sobatmechkeeb',
+		thumbnailUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80'
+	}
+];
 
 export const initialProjects: AnalysisProject[] = [
 	{

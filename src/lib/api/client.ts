@@ -41,6 +41,15 @@ class ConnectionStateStore {
 	private _listeners: Array<(state: ApiConnectionState) => void> = [];
 
 	constructor() {
+		// 1. Check environment variable PUBLIC_ENABLE_MOCK
+		const envMock = import.meta.env?.PUBLIC_ENABLE_MOCK;
+		if (envMock === 'false') {
+			this._mode = 'live';
+		} else {
+			this._mode = 'mock';
+		}
+
+		// 2. User preference in browser localStorage overrides default
 		if (typeof window !== 'undefined') {
 			const saved = localStorage.getItem(STORAGE_KEY);
 			if (saved === 'mock' || saved === 'live') {
@@ -67,9 +76,9 @@ class ConnectionStateStore {
 	}
 
 	private notify() {
-		const s = this.state;
+		const currentState = this.state;
 		for (const listener of this._listeners) {
-			listener(s);
+			listener(currentState);
 		}
 	}
 

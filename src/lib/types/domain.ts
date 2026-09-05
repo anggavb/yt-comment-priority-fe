@@ -17,6 +17,15 @@ export interface AnalysisProject {
 	status?: 'draft' | 'ready' | 'processed' | 'ranked';
 }
 
+export interface YouTubeChannel {
+	id: string;
+	channelId: string;
+	title: string;
+	description?: string;
+	customUrl?: string;
+	thumbnailUrl?: string;
+}
+
 export type VideoFetchStatus = 'PENDING' | 'FETCHING' | 'COMPLETED' | 'FAILED';
 
 export interface YouTubeVideo {
@@ -166,8 +175,9 @@ export interface RankingResult {
 	normalizedRequestCount: number;
 	normalizedUniqueRequester: number;
 	normalizedAverageLikes: number;
-	normalizedRecentRatio: number;
-	finalScore: number; // Preference Value Vi
+	preferenceValue: number; // Preference Value Vi (CONTEXT.md)
+	/** @deprecated Use preferenceValue */
+	finalScore?: number;
 	rank: number;
 	calculatedAt: string;
 }

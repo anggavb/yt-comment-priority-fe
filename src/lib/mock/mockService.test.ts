@@ -89,8 +89,8 @@ describe('MockService Data & Operations', () => {
 			expect(normRow.r4).toBeLessThanOrEqual(1);
 		}
 
-		// Check Weighted Matrix & Final Scores (descending order)
-		const scores = leaderboard.rankings.map((r) => r.finalScore);
+		// Check Weighted Matrix & Preference Values (descending order per CONTEXT.md)
+		const scores = leaderboard.rankings.map((r) => r.preferenceValue);
 		for (let i = 0; i < scores.length - 1; i++) {
 			expect(scores[i]).toBeGreaterThanOrEqual(scores[i + 1]);
 		}

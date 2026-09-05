@@ -85,6 +85,12 @@ export class MockService {
 		this.calculateRanking('proj-desk-setup-2026');
 	}
 
+	private getProjectComments(projectId: string): Comment[] {
+		const projectVideos = this.videos.filter((v) => v.analysisProjectId === projectId);
+		const videoIds = new Set(projectVideos.map((v) => v.id));
+		return this.comments.filter((c) => videoIds.has(c.youtubeVideoId));
+	}
+
 	// ================= PROJECTS =================
 	async getProjects(): Promise<AnalysisProject[]> {
 		return clone(this.projects);
@@ -352,9 +358,7 @@ export class MockService {
 		matchesFound: number;
 		summary: CommentAuditSummary;
 	}> {
-		const projectVideos = this.videos.filter((v) => v.analysisProjectId === projectId);
-		const videoIds = new Set(projectVideos.map((v) => v.id));
-		const projectComments = this.comments.filter((c) => videoIds.has(c.youtubeVideoId));
+		const projectComments = this.getProjectComments(projectId);
 		const projectProducts = this.products.filter((p) => p.analysisProjectId === projectId);
 
 		// Remove existing matches for this project's products
@@ -438,9 +442,7 @@ export class MockService {
 		projectId: string,
 		filter?: CommentFilterDto
 	): Promise<PaginatedResponse<Comment & { matches?: CommentMatch[] }>> {
-		const projectVideos = this.videos.filter((v) => v.analysisProjectId === projectId);
-		const videoIds = new Set(projectVideos.map((v) => v.id));
-		const result = this.comments.filter((c) => videoIds.has(c.youtubeVideoId));
+		const result = this.getProjectComments(projectId);
 
 		// Attach matches
 		const commentsWithMatches = result.map((c) => {
@@ -464,9 +466,9 @@ export class MockService {
 			filtered = filtered.filter((c) => c.matches?.some((m) => m.isRequest === filter.isRequest));
 		}
 		if (filter?.search) {
-			const s = filter.search.toLowerCase();
+			const searchTerm = filter.search.toLowerCase();
 			filtered = filtered.filter(
-				(c) => c.text.toLowerCase().includes(s) || c.authorName.toLowerCase().includes(s)
+				(c) => c.text.toLowerCase().includes(searchTerm) || c.authorName.toLowerCase().includes(searchTerm)
 			);
 		}
 
@@ -527,9 +529,7 @@ export class MockService {
 		const { criteria, c4Config } = await this.getCriteria(projectId);
 
 		// 1. Determine C4 Time Anchor Date per ADR-0001
-		const projectVideos = this.videos.filter((v) => v.analysisProjectId === projectId);
-		const videoIds = new Set(projectVideos.map((v) => v.id));
-		const projectComments = this.comments.filter((c) => videoIds.has(c.youtubeVideoId));
+		const projectComments = this.getProjectComments(projectId);
 
 		let anchorDate: Date;
 		if (c4Config.anchorType === 'custom' && c4Config.customAnchorDate) {
@@ -665,12 +665,13 @@ export class MockService {
 					normalizedUniqueRequester: norm.r2,
 					normalizedAverageLikes: norm.r3,
 					normalizedRecentRatio: norm.r4,
+					preferenceValue: weightedRow.preferenceValue,
 					finalScore: weightedRow.preferenceValue,
 					rank: 0,
 					calculatedAt: new Date().toISOString()
 				};
 			})
-			.sort((a, b) => b.finalScore - a.finalScore)
+			.sort((a, b) => b.preferenceValue - a.preferenceValue)
 			.map((item, idx) => ({ ...item, rank: idx + 1 }));
 
 		const leaderboard: RankingLeaderboard = {
