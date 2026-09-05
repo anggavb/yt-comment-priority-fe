@@ -449,6 +449,14 @@ export class MockService {
 		return clone(this.commentMatches.filter((m) => productIds.has(m.productId)));
 	}
 
+	getProjectLatestCommentDate(projectId: string): string | null {
+		const comments = this.getProjectComments(projectId);
+		if (comments.length === 0) return null;
+		const timestamps = comments.map((c) => new Date(c.publishedAt).getTime()).filter((t) => !isNaN(t));
+		if (timestamps.length === 0) return null;
+		return new Date(Math.max(...timestamps)).toISOString();
+	}
+
 	// ================= CRITERIA & C4 (ADR-0001) =================
 	async getCriteria(projectId: string): Promise<{ criteria: Criteria[]; c4Config: C4TimeAnchorConfig }> {
 		const crits = this.criteria.filter((c) => c.analysisProjectId === projectId);
@@ -463,18 +471,49 @@ export class MockService {
 		projectId: string,
 		dto: UpdateCriteriaDto
 	): Promise<{ criteria: Criteria[]; c4Config: C4TimeAnchorConfig }> {
+		if (dto.c4Config) {
+			if (dto.c4Config.daysWindow < 1) {
+				throw new Error('Rentang hari C4 minimal harus 1 hari.');
+			}
+			if (dto.c4Config.anchorType === 'custom' && !dto.c4Config.customAnchorDate) {
+				throw new Error('Tanggal acuan kustom wajib diisi saat memilih mode kustom.');
+			}
+		}
+
 		// Update weights
-		for (const item of dto.criteria) {
-			const crit = this.criteria.find((c) => c.analysisProjectId === projectId && c.code === item.code);
-			if (crit) {
-				crit.weight = item.weight;
-				crit.updatedAt = new Date().toISOString();
+		if (dto.criteria && dto.criteria.length > 0) {
+			// Save current state in case rollback is needed on invalid resulting sum
+			const previousWeights = new Map<string, number>();
+			for (const item of dto.criteria) {
+				const crit = this.criteria.find((c) => c.analysisProjectId === projectId && c.code === item.code);
+				if (crit) {
+					previousWeights.set(crit.id, crit.weight);
+					crit.weight = item.weight;
+					crit.updatedAt = new Date().toISOString();
+				}
+			}
+
+			// Validate that the resulting cumulative weight for the project equals 1.0 (100%)
+			const projectCriteria = this.criteria.filter((c) => c.analysisProjectId === projectId);
+			const totalWeight = projectCriteria.reduce((acc, c) => acc + (c.weight || 0), 0);
+			if (Math.abs(totalWeight - 1.0) > 0.005) {
+				// Rollback
+				for (const [critId, oldWeight] of previousWeights.entries()) {
+					const crit = this.criteria.find((c) => c.id === critId);
+					if (crit) crit.weight = oldWeight;
+				}
+				throw new Error(
+					`Total bobot kriteria harus tepat 100% (1.0). Saat ini: ${(totalWeight * 100).toFixed(1)}%`
+				);
 			}
 		}
 
 		if (dto.c4Config) {
 			this.c4Configs.set(projectId, clone(dto.c4Config));
 		}
+
+		// Invalidate cached ranking if criteria changed so next fetch recalculates
+		this.rankingsMap.delete(projectId);
 
 		return this.getCriteria(projectId);
 	}
