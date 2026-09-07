@@ -248,6 +248,48 @@ export class HttpApiClient implements ApiClient {
 		projectId: string,
 		filter?: CommentFilterDto
 	): Promise<PaginatedResponse<Comment & { matches?: CommentMatch[] }>> {
+		const desiredLimit = filter?.limit;
+
+		// If caller requested more than backend's maximum allowed limit (100),
+		// transparently fetch in chunks of 100 until desiredLimit or total is reached
+		if (desiredLimit && desiredLimit > 100) {
+			const pageSize = 100;
+			let currentPage = filter?.page || 1;
+			const allData: (Comment & { matches?: CommentMatch[] })[] = [];
+			let total = 0;
+
+			while (allData.length < desiredLimit) {
+				const singlePageRes = await this.fetchSingleCommentPage(projectId, {
+					...filter,
+					page: currentPage,
+					limit: pageSize
+				});
+
+				total = singlePageRes.total;
+				allData.push(...singlePageRes.data);
+
+				if (singlePageRes.data.length < pageSize || allData.length >= total) {
+					break;
+				}
+				currentPage++;
+			}
+
+			return {
+				data: allData.slice(0, desiredLimit),
+				total,
+				page: filter?.page || 1,
+				limit: desiredLimit,
+				totalPages: Math.ceil(total / desiredLimit) || 1
+			};
+		}
+
+		return this.fetchSingleCommentPage(projectId, filter);
+	}
+
+	private async fetchSingleCommentPage(
+		projectId: string,
+		filter?: CommentFilterDto
+	): Promise<PaginatedResponse<Comment & { matches?: CommentMatch[] }>> {
 		const params = new URLSearchParams();
 		if (filter?.productId) params.append('productId', filter.productId);
 		if (filter?.status) params.append('status', filter.status);
@@ -255,12 +297,51 @@ export class HttpApiClient implements ApiClient {
 		if (filter?.isRequest !== undefined) params.append('isRequest', String(filter.isRequest));
 		if (filter?.search) params.append('search', filter.search);
 		if (filter?.page) params.append('page', String(filter.page));
-		if (filter?.limit) params.append('limit', String(filter.limit));
+
+		// Clamp limit strictly between 1 and 100 to satisfy backend schema
+		if (filter?.limit) {
+			const clamped = Math.min(100, Math.max(1, filter.limit));
+			params.append('limit', String(clamped));
+		}
 
 		const query = params.toString();
-		return this.request<PaginatedResponse<Comment & { matches?: CommentMatch[] }>>(
-			`/projects/${projectId}/comments${query ? `?${query}` : ''}`
-		);
+		const raw = await this.request<
+			| (PaginatedResponse<Comment & { matches?: CommentMatch[] }> & {
+					pagination?: {
+						page: number;
+						limit: number;
+						total: number;
+						totalPages: number;
+					};
+			  })
+			| {
+					data: (Comment & { matches?: CommentMatch[] })[];
+					pagination?: {
+						page: number;
+						limit: number;
+						total: number;
+						totalPages: number;
+					};
+					total?: number;
+					page?: number;
+					limit?: number;
+					totalPages?: number;
+			  }
+		>(`/projects/${projectId}/comments${query ? `?${query}` : ''}`);
+
+		const total = raw.total ?? raw.pagination?.total ?? raw.data?.length ?? 0;
+		const page = raw.page ?? raw.pagination?.page ?? filter?.page ?? 1;
+		const limit = raw.limit ?? raw.pagination?.limit ?? filter?.limit ?? 20;
+		const totalPages =
+			raw.totalPages ?? raw.pagination?.totalPages ?? (limit > 0 ? Math.ceil(total / limit) || 1 : 1);
+
+		return {
+			data: raw.data || [],
+			total,
+			page,
+			limit,
+			totalPages
+		};
 	}
 
 	async getCommentMatches(projectId: string): Promise<CommentMatch[]> {

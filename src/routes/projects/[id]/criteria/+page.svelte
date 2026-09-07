@@ -47,7 +47,7 @@
 		try {
 			const [critRes, commentsRes] = await Promise.all([
 				apiClient.getCriteria(data.project.id),
-				apiClient.getComments(data.project.id, { limit: 1000 }).catch(() => ({ data: [] }))
+				apiClient.getComments(data.project.id, { limit: 20 }).catch(() => ({ data: [] }))
 			]);
 
 			criteriaList = critRes.criteria;
