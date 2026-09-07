@@ -34,7 +34,12 @@ import type {
 export class HttpApiClient implements ApiClient {
 	private baseUrl: string;
 
-	constructor(baseUrl: string = import.meta.env?.PUBLIC_API_BASE_URL || 'http://localhost:3000') {
+	constructor(
+		baseUrl: string =
+			import.meta.env?.PUBLIC_API_BASE_URL ||
+			(typeof process !== 'undefined' ? process.env?.PUBLIC_API_BASE_URL : undefined) ||
+			'http://localhost:3000'
+	) {
 		this.baseUrl = baseUrl.replace(/\/+$/, '');
 	}
 

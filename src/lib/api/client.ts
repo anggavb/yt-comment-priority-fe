@@ -33,7 +33,10 @@ class ConnectionStateStore {
 	private _mode: ConnectionMode = 'mock';
 	private _health: BackendHealth = {
 		status: 'checking',
-		url: import.meta.env?.PUBLIC_API_BASE_URL || 'http://localhost:3000',
+		url:
+			import.meta.env?.PUBLIC_API_BASE_URL ||
+			(typeof process !== 'undefined' ? process.env?.PUBLIC_API_BASE_URL : undefined) ||
+			'http://localhost:3000',
 		lastChecked: undefined
 	};
 	private _fallbackActive: boolean = false;
@@ -42,7 +45,9 @@ class ConnectionStateStore {
 
 	constructor() {
 		// 1. Check environment variable PUBLIC_ENABLE_MOCK
-		const envMock = import.meta.env?.PUBLIC_ENABLE_MOCK;
+		const envMock =
+			import.meta.env?.PUBLIC_ENABLE_MOCK ??
+			(typeof process !== 'undefined' ? process.env?.PUBLIC_ENABLE_MOCK : undefined);
 		if (envMock === 'false') {
 			this._mode = 'live';
 		} else {
