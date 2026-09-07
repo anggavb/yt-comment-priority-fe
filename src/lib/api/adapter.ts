@@ -23,6 +23,9 @@ import type {
 } from '$lib/types';
 
 export interface ApiClient {
+	// Custom fetcher for SvelteKit load functions
+	setFetch?(fn: typeof fetch): void;
+
 	// Projects
 	getProjects(): Promise<AnalysisProject[]>;
 	getProject(id: string): Promise<AnalysisProject | null>;

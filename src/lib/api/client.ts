@@ -133,6 +133,10 @@ export class DualModeApiClient implements ApiClient {
 		connectionStore.setMode(mode);
 	}
 
+	setFetch(fn: typeof fetch) {
+		this.http.setFetch(fn);
+	}
+
 	async checkBackendHealth(): Promise<BackendHealth> {
 		connectionStore.setHealth({
 			status: 'checking',

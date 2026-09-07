@@ -33,14 +33,21 @@ import type {
 
 export class HttpApiClient implements ApiClient {
 	private baseUrl: string;
+	private fetcher: typeof fetch = fetch;
 
 	constructor(
 		baseUrl: string =
 			import.meta.env?.PUBLIC_API_BASE_URL ||
 			(typeof process !== 'undefined' ? process.env?.PUBLIC_API_BASE_URL : undefined) ||
-			'http://localhost:3000'
+			'http://localhost:3000',
+		fetcher?: typeof fetch
 	) {
 		this.baseUrl = baseUrl.replace(/\/+$/, '');
+		if (fetcher) this.fetcher = fetcher;
+	}
+
+	setFetch(fn: typeof fetch) {
+		this.fetcher = fn;
 	}
 
 	getBaseUrl(): string {
@@ -57,7 +64,8 @@ export class HttpApiClient implements ApiClient {
 		const timeoutId = setTimeout(() => controller.abort(), 10000);
 
 		try {
-			const res = await fetch(url, {
+			const fetchFn = this.fetcher || fetch;
+			const res = await fetchFn(url, {
 				...options,
 				signal: controller.signal,
 				headers: {

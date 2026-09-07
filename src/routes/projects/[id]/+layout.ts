@@ -2,7 +2,8 @@ import { apiClient } from '$lib/api';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
-export const load: LayoutLoad = async ({ params }) => {
+export const load: LayoutLoad = async ({ params, fetch }) => {
+	apiClient.setFetch?.(fetch);
 	const project = await apiClient.getProject(params.id);
 	if (!project) {
 		error(404, {
