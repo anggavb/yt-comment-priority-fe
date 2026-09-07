@@ -204,7 +204,7 @@
 								<span>Komentar Diproses</span>
 							</div>
 							<div class="mt-1 text-xl font-bold text-foreground">
-								{result.processedCount}
+								{result.processedCount ?? result.totalComments ?? 0}
 							</div>
 						</div>
 
@@ -214,7 +214,7 @@
 								<span>Mentions Terdeteksi</span>
 							</div>
 							<div class="mt-1 text-xl font-bold text-blue-600 dark:text-blue-400">
-								{result.summary.matchedComments}
+								{result.summary?.matchedComments ?? result.matchedComments ?? 0}
 							</div>
 						</div>
 
@@ -224,7 +224,7 @@
 								<span>Requests Terdeteksi</span>
 							</div>
 							<div class="mt-1 text-xl font-bold text-[#FF0000]">
-								{result.summary.requestComments}
+								{result.summary?.requestComments ?? result.requestCount ?? 0}
 							</div>
 						</div>
 
@@ -233,7 +233,7 @@
 								<span>Relasi Match Dibuat</span>
 							</div>
 							<div class="mt-1 text-xl font-bold text-foreground font-mono">
-								{result.matchesFound}
+								{result.matchesFound ?? result.totalMatches ?? 0}
 							</div>
 						</div>
 					</div>

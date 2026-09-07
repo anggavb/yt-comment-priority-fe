@@ -172,9 +172,55 @@ export class HttpApiClient implements ApiClient {
 
 	// Comments & Processing
 	async processComments(projectId: string): Promise<ProcessCommentsResult> {
-		return this.request<ProcessCommentsResult>(`/projects/${projectId}/process-comments`, {
+		const raw = await this.request<
+			| ProcessCommentsResult
+			| {
+					message?: string;
+					totalComments?: number;
+					matchedComments?: number;
+					totalMatches?: number;
+					requestCount?: number;
+					processedCount?: number;
+					matchesFound?: number;
+					summary?: {
+						totalComments?: number;
+						matchedComments?: number;
+						requestComments?: number;
+						unmatchedComments?: number;
+					};
+			  }
+		>(`/projects/${projectId}/process-comments`, {
 			method: 'POST'
 		});
+
+		const totalComments =
+			raw.summary?.totalComments ?? raw.totalComments ?? raw.processedCount ?? 0;
+		const matchedComments =
+			raw.summary?.matchedComments ?? raw.matchedComments ?? 0;
+		const requestComments =
+			raw.summary?.requestComments ?? raw.requestCount ?? 0;
+		const unmatchedComments =
+			raw.summary?.unmatchedComments ?? Math.max(0, totalComments - matchedComments);
+		const processedCount =
+			raw.processedCount ?? raw.totalComments ?? totalComments;
+		const matchesFound =
+			raw.matchesFound ?? raw.totalMatches ?? matchedComments;
+
+		return {
+			processedCount,
+			matchesFound,
+			totalComments,
+			matchedComments,
+			totalMatches: matchesFound,
+			requestCount: requestComments,
+			message: raw.message,
+			summary: {
+				totalComments,
+				matchedComments,
+				requestComments,
+				unmatchedComments
+			}
+		};
 	}
 
 	async getComments(

@@ -13,6 +13,7 @@ describe('Project Management TDD & Unit Tests', () => {
 		mockService = new MockService();
 		mockClient = new MockApiClient(mockService);
 		client = new DualModeApiClient(mockClient);
+		client.setMode('mock');
 	});
 
 	describe('Form Validation', () => {

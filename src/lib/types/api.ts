@@ -109,4 +109,10 @@ export interface ProcessCommentsResult {
 	processedCount: number;
 	matchesFound: number;
 	summary: CommentAuditSummary;
+	message?: string;
+	totalComments?: number;
+	matchedComments?: number;
+	totalMatches?: number;
+	requestCount?: number;
 }
+

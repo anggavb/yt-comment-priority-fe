@@ -14,6 +14,7 @@ describe('YouTube Video Management Lifecycle via ApiClient (Issue #3)', () => {
 		mockService = new MockService();
 		mockClient = new MockApiClient(mockService);
 		client = new DualModeApiClient(mockClient);
+		client.setMode('mock');
 
 		project = await client.createProject({
 			name: 'Test Video Management Project',
