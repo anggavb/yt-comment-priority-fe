@@ -10,16 +10,24 @@ import type {
 	CreateProductDto,
 	CreateProjectDto,
 	Criteria,
+	CriteriaCode,
 	C4TimeAnchorConfig,
+	DecisionMatrix,
+	DecisionMatrixRow,
 	FetchCommentsOptions,
+	NormalizedMatrix,
+	NormalizedMatrixRow,
 	PaginatedResponse,
 	ProcessCommentsResult,
 	ProductKeyword,
 	RankingLeaderboard,
+	RankingResult,
 	RequestKeyword,
 	UpdateCriteriaDto,
 	UpdateProductDto,
 	UpdateProjectDto,
+	WeightedMatrix,
+	WeightedMatrixRow,
 	YouTubeVideo
 } from '$lib/types';
 
@@ -268,13 +276,183 @@ export class HttpApiClient implements ApiClient {
 
 	// SAW Rankings
 	async calculateRanking(projectId: string): Promise<RankingLeaderboard> {
-		return this.request<RankingLeaderboard>(`/projects/${projectId}/calculate-ranking`, {
+		const raw = await this.request<unknown>(`/projects/${projectId}/calculate-ranking`, {
 			method: 'POST'
 		});
+		return this.adaptRankingLeaderboard(raw);
 	}
 
 	async getRankings(projectId: string): Promise<RankingLeaderboard | null> {
-		return this.request<RankingLeaderboard>(`/projects/${projectId}/rankings`).catch(() => null);
+		const raw = await this.request<unknown>(`/projects/${projectId}/rankings`).catch(() => null);
+		if (!raw) return null;
+		return this.adaptRankingLeaderboard(raw);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private adaptRankingLeaderboard(raw: any): RankingLeaderboard {
+		if (!raw || typeof raw !== 'object') return raw;
+
+		// 1. Criteria Weights (backend uses lowercase: { c1, c2, c3, c4 } under "weights")
+		const criteriaWeights: Record<CriteriaCode, number> = {
+			C1: raw.criteriaWeights?.C1 ?? raw.weights?.c1 ?? raw.weights?.C1 ?? 0.4,
+			C2: raw.criteriaWeights?.C2 ?? raw.weights?.c2 ?? raw.weights?.C2 ?? 0.25,
+			C3: raw.criteriaWeights?.C3 ?? raw.weights?.c3 ?? raw.weights?.C3 ?? 0.2,
+			C4: raw.criteriaWeights?.C4 ?? raw.weights?.c4 ?? raw.weights?.C4 ?? 0.15
+		};
+
+		// 2. Decision Matrix rows
+		let decisionRows: DecisionMatrixRow[] = [];
+		if (raw.decisionMatrix?.rows && Array.isArray(raw.decisionMatrix.rows)) {
+			decisionRows = raw.decisionMatrix.rows;
+		} else if (Array.isArray(raw.rankings)) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			decisionRows = raw.rankings.map((item: any) => {
+				const prodId = item.productId ?? item.candidateProductId ?? '';
+				const dec = raw.matrixDecision?.[prodId];
+				return {
+					productId: prodId,
+					productName: item.productName ?? '',
+					c1RequestCount: dec?.c1 ?? item.c1Raw ?? item.requestCount ?? 0,
+					c2UniqueRequester: dec?.c2 ?? item.c2Raw ?? item.uniqueRequester ?? 0,
+					c3AverageRequestLikes: dec?.c3 ?? item.c3Raw ?? item.averageRequestLikes ?? 0,
+					c4RecentRequestRatio: dec?.c4 ?? item.c4Raw ?? item.recentRequestRatio ?? 0
+				};
+			});
+		}
+
+		const maxC1 = decisionRows.length > 0 ? Math.max(...decisionRows.map((r) => r.c1RequestCount)) : 0;
+		const maxC2 = decisionRows.length > 0 ? Math.max(...decisionRows.map((r) => r.c2UniqueRequester)) : 0;
+		const maxC3 = decisionRows.length > 0 ? Math.max(...decisionRows.map((r) => r.c3AverageRequestLikes)) : 0;
+		const maxC4 = decisionRows.length > 0 ? Math.max(...decisionRows.map((r) => r.c4RecentRequestRatio)) : 0;
+
+		const decisionMatrix: DecisionMatrix = {
+			rows: decisionRows,
+			maxValues: raw.decisionMatrix?.maxValues ?? {
+				c1: maxC1 || 1,
+				c2: maxC2 || 1,
+				c3: maxC3 || 1,
+				c4: maxC4 || 1
+			}
+		};
+
+		// 3. Normalized Matrix rows
+		let normalizedRows: NormalizedMatrixRow[] = [];
+		if (raw.normalizedMatrix?.rows && Array.isArray(raw.normalizedMatrix.rows)) {
+			normalizedRows = raw.normalizedMatrix.rows;
+		} else if (Array.isArray(raw.rankings)) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			normalizedRows = raw.rankings.map((item: any) => {
+				const prodId = item.productId ?? item.candidateProductId ?? '';
+				const norm = raw.matrixNormalized?.[prodId];
+				return {
+					productId: prodId,
+					productName: item.productName ?? '',
+					r1:
+						norm?.c1 ??
+						(decisionMatrix.maxValues.c1 > 0
+							? Number(((item.c1Raw ?? item.requestCount ?? 0) / decisionMatrix.maxValues.c1).toFixed(4))
+							: 0),
+					r2:
+						norm?.c2 ??
+						(decisionMatrix.maxValues.c2 > 0
+							? Number(((item.c2Raw ?? item.uniqueRequester ?? 0) / decisionMatrix.maxValues.c2).toFixed(4))
+							: 0),
+					r3:
+						norm?.c3 ??
+						(decisionMatrix.maxValues.c3 > 0
+							? Number(((item.c3Raw ?? item.averageRequestLikes ?? 0) / decisionMatrix.maxValues.c3).toFixed(4))
+							: 0),
+					r4:
+						norm?.c4 ??
+						(decisionMatrix.maxValues.c4 > 0
+							? Number(((item.c4Raw ?? item.recentRequestRatio ?? 0) / decisionMatrix.maxValues.c4).toFixed(4))
+							: 0)
+				};
+			});
+		}
+
+		const normalizedMatrix: NormalizedMatrix = {
+			rows: normalizedRows
+		};
+
+		// 4. Weighted Matrix rows
+		let weightedRows: WeightedMatrixRow[] = [];
+		if (raw.weightedMatrix?.rows && Array.isArray(raw.weightedMatrix.rows)) {
+			weightedRows = raw.weightedMatrix.rows;
+		} else if (Array.isArray(raw.rankings)) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			weightedRows = raw.rankings.map((item: any) => {
+				const prodId = item.productId ?? item.candidateProductId ?? '';
+				const weighted = raw.matrixWeighted?.[prodId];
+				const normRow = normalizedRows.find((n) => n.productId === prodId);
+				const w1 = weighted?.c1 ?? Number(((normRow?.r1 ?? 0) * criteriaWeights.C1).toFixed(4));
+				const w2 = weighted?.c2 ?? Number(((normRow?.r2 ?? 0) * criteriaWeights.C2).toFixed(4));
+				const w3 = weighted?.c3 ?? Number(((normRow?.r3 ?? 0) * criteriaWeights.C3).toFixed(4));
+				const w4 = weighted?.c4 ?? Number(((normRow?.r4 ?? 0) * criteriaWeights.C4).toFixed(4));
+				const preferenceValue = item.preferenceValue ?? Number((w1 + w2 + w3 + w4).toFixed(4));
+
+				return {
+					productId: prodId,
+					productName: item.productName ?? '',
+					w1,
+					w2,
+					w3,
+					w4,
+					preferenceValue
+				};
+			});
+		}
+
+		const weightedMatrix: WeightedMatrix = {
+			rows: weightedRows
+		};
+
+		// 5. Rankings list
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const rankings: RankingResult[] = (raw.rankings || []).map((item: any, idx: number) => {
+			const prodId = item.productId ?? item.candidateProductId ?? '';
+			const decRow = decisionRows.find((d) => d.productId === prodId);
+			const normRow = normalizedRows.find((n) => n.productId === prodId);
+
+			const requestCount = item.requestCount ?? item.c1Raw ?? decRow?.c1RequestCount ?? 0;
+			const uniqueRequester = item.uniqueRequester ?? item.c2Raw ?? decRow?.c2UniqueRequester ?? 0;
+			const averageRequestLikes = item.averageRequestLikes ?? item.c3Raw ?? decRow?.c3AverageRequestLikes ?? 0;
+			const recentRequestRatio = item.recentRequestRatio ?? item.c4Raw ?? decRow?.c4RecentRequestRatio ?? 0;
+
+			return {
+				id: item.id ?? `rank-${raw.analysisProjectId}-${prodId}`,
+				analysisProjectId: item.analysisProjectId ?? raw.analysisProjectId,
+				productId: prodId,
+				productName: item.productName ?? '',
+				requestCount,
+				uniqueRequester,
+				averageRequestLikes,
+				recentRequestRatio,
+				normalizedRequestCount: item.normalizedRequestCount ?? normRow?.r1 ?? 0,
+				normalizedUniqueRequester: item.normalizedUniqueRequester ?? normRow?.r2 ?? 0,
+				normalizedAverageLikes: item.normalizedAverageLikes ?? normRow?.r3 ?? 0,
+				normalizedRecentRequestRatio: item.normalizedRecentRequestRatio ?? normRow?.r4 ?? 0,
+				preferenceValue: item.preferenceValue ?? 0,
+				finalScore: item.preferenceValue ?? 0,
+				rank: item.rank ?? idx + 1,
+				calculatedAt: item.calculatedAt ?? raw.calculatedAt ?? new Date().toISOString()
+			};
+		});
+
+		return {
+			analysisProjectId: raw.analysisProjectId,
+			calculatedAt: raw.calculatedAt ?? new Date().toISOString(),
+			rankings,
+			decisionMatrix,
+			normalizedMatrix,
+			weightedMatrix,
+			criteriaWeights,
+			c4Config: raw.c4Config ?? {
+				daysWindow: 30,
+				anchorType: 'max_comment',
+				customAnchorDate: null
+			}
+		};
 	}
 
 	// Health Check

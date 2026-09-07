@@ -53,8 +53,8 @@
 	/** Automated verification: max normalized value per criterion must be ≈ 1.000 */
 	const normalizationCheck = $derived.by(() => {
 		if (!leaderboard) return null;
-		const rows = leaderboard.normalizedMatrix.rows;
-		if (rows.length === 0) return null;
+		const rows = leaderboard.normalizedMatrix?.rows;
+		if (!rows || rows.length === 0) return null;
 		const maxR1 = Math.max(...rows.map((r) => r.r1));
 		const maxR2 = Math.max(...rows.map((r) => r.r2));
 		const maxR3 = Math.max(...rows.map((r) => r.r3));
@@ -77,7 +77,10 @@
 	/** Returns criteria weight as percentage string */
 	function weightPct(code: CriteriaCode): string {
 		if (!leaderboard) return '—';
-		const w = leaderboard.criteriaWeights[code] ?? 0;
+		const w =
+			leaderboard.criteriaWeights?.[code] ??
+			(leaderboard as unknown as { weights?: Record<string, number> })?.weights?.[code.toLowerCase()] ??
+			0;
 		return `${Math.round(w * 100)}%`;
 	}
 
